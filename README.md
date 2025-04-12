@@ -1,5 +1,7 @@
 # Disclaimer
-I drop support for kernels older than [Arch Linux core version](https://archlinux.org/packages/core/x86_64/linux/).
+This repository is a fork of [https://github.com/gschorcht/spi-ch341-usb](https://github.com/gschorcht/spi-ch341-usb) with attempts to keep it working with recent kernels.
+
+Compatibility with kernel versions older than [Arch Linux core version](https://archlinux.org/packages/core/x86_64/linux/) is not maintained.
 If you are looking for a driver with older kernels support, please take a look at this repository: [https://github.com/frank-zago/ch341-i2c-spi-gpio](https://github.com/frank-zago/ch341-i2c-spi-gpio).  
 -- dimich
 
