@@ -89,8 +89,6 @@
 #define CH341_PIN_MODE_IN           1
 #define CH341_PIN_MODE_CS           2
 
-#define CH341_OK                    0
-
 #define SCK_BIT        (1 << 3)
 #define MOSI_BIT       (1 << 5)
 #define MISO_BIT       (1 << 7)
@@ -309,7 +307,7 @@ static int ch341_cfg_probe (struct ch341_device* ch341_dev)
         return -EINVAL;
     }
 
-    return CH341_OK;
+    return 0;
 }
 
 static void ch341_cfg_remove (struct ch341_device* ch341_dev)
@@ -343,7 +341,7 @@ static int ch341_spi_read_inputs (struct ch341_device* ch341_dev)
 
     mutex_unlock (&ch341_dev->mtx);
 
-    return (result < 0) ? result : CH341_OK;
+    return (result < 0) ? result : 0;
 }
 
 static int ch341_spi_write_outputs (struct ch341_device* ch341_dev)
@@ -361,7 +359,7 @@ static int ch341_spi_write_outputs (struct ch341_device* ch341_dev)
 
     mutex_unlock (&ch341_dev->mtx);
 
-    return (result < 0) ? result : CH341_OK;
+    return (result < 0) ? result : 0;
 }
 
 static uint8_t ch341_spi_swap_byte(const uint8_t byte)
@@ -714,7 +712,7 @@ static int ch341_spi_probe (struct ch341_device* ch341_dev)
 
     DEV_DBG (CH341_IF_ADDR, "done");
 
-    return CH341_OK;
+    return 0;
 }
 
 static void ch341_spi_remove (struct ch341_device* ch341_dev)
@@ -784,7 +782,7 @@ static int ch341_irq_set_type (struct irq_data *data, unsigned int type)
 
     DEV_INFO (CH341_IF_ADDR, "irq=%d flow_type=%d", data->irq, type);
 
-    return CH341_OK;
+    return 0;
 }
 
 static int ch341_irq_check (struct ch341_device* ch341_dev, uint8_t irq,
@@ -792,7 +790,7 @@ static int ch341_irq_check (struct ch341_device* ch341_dev, uint8_t irq,
 {
     int type;
 
-    CHECK_PARAM_RET (old != new, CH341_OK)
+    CHECK_PARAM_RET (old != new, 0)
     CHECK_PARAM_RET (ch341_dev, -EINVAL);
     CHECK_PARAM_RET (irq < ch341_dev->irq_num, -EINVAL);
 
@@ -800,13 +798,13 @@ static int ch341_irq_check (struct ch341_device* ch341_dev, uint8_t irq,
     if (irq < 0 || irq >= ch341_dev->irq_num) return -EINVAL;
 
     // if IRQ is disabled, just return with success
-    if (!ch341_dev->irq_enabled[irq]) return CH341_OK;
+    if (!ch341_dev->irq_enabled[irq]) return 0;
 
     type = ch341_dev->irq_types[irq];
 
     // for software IRQs dont check if IRQ is the hardware IRQ for rising edges
     if (!hardware && irq == ch341_dev->irq_hw && new > old)
-        return CH341_OK;
+        return 0;
 
     if ((type & IRQ_TYPE_EDGE_FALLING && old > new) ||
         (type & IRQ_TYPE_EDGE_RISING  && new > old))
@@ -821,7 +819,7 @@ static int ch341_irq_check (struct ch341_device* ch341_dev, uint8_t irq,
         spin_unlock_irqrestore(&ch341_dev->irq_lock, flags);
     }
 
-    return CH341_OK;
+    return 0;
 }
 
 static int ch341_irq_probe (struct ch341_device* ch341_dev)
@@ -838,7 +836,7 @@ static int ch341_irq_probe (struct ch341_device* ch341_dev)
     ch341_dev->irq.irq_disable  = ch341_irq_disable;
     ch341_dev->irq.irq_set_type = ch341_irq_set_type;
 
-    if (!ch341_dev->irq_num) return CH341_OK;
+    if (!ch341_dev->irq_num) return 0;
 
     if ((result = irq_alloc_descs(-1, 0, ch341_dev->irq_num, 0)) < 0)
     {
@@ -863,7 +861,7 @@ static int ch341_irq_probe (struct ch341_device* ch341_dev)
 
     DEV_DBG (CH341_IF_ADDR, "done");
 
-    return CH341_OK;
+    return 0;
 }
 
 static void ch341_irq_remove (struct ch341_device* ch341_dev)
@@ -1028,15 +1026,15 @@ static int ch341_gpio_get_multiple (struct gpio_chip *chip,
     // DEV_DBG (CH341_IF_ADDR, "mask=%08lx bit=%08lx io_data=%02x",
     //          *mask, *bits, ch341_dev->gpio_io_data);
 
-    return CH341_OK;
+    return 0;
 }
 
-static void ch341_gpio_set (struct gpio_chip *chip, unsigned offset, int value)
+static int ch341_gpio_set (struct gpio_chip *chip, unsigned offset, int value)
 {
     struct ch341_device* ch341_dev = (struct ch341_device*)gpiochip_get_data(chip);
 
-    CHECK_PARAM (ch341_dev);
-    CHECK_PARAM (offset < ch341_dev->gpio_num);
+    CHECK_PARAM_RET (ch341_dev, -EINVAL);
+    CHECK_PARAM_RET (offset < ch341_dev->gpio_num, -EINVAL);
 
     if (value)
         ch341_dev->gpio_io_data |= ch341_dev->gpio_bits[offset];
@@ -1046,18 +1044,18 @@ static void ch341_gpio_set (struct gpio_chip *chip, unsigned offset, int value)
     // DEV_DBG (CH341_IF_ADDR, "offset=%u value=%d io_data=%02x",
     //          offset, value, ch341_dev->gpio_io_data);
 
-    ch341_spi_write_outputs (ch341_dev);
+    return ch341_spi_write_outputs(ch341_dev);
 }
 
-static void ch341_gpio_set_multiple (struct gpio_chip *chip,
+static int ch341_gpio_set_multiple (struct gpio_chip *chip,
                               unsigned long *mask, unsigned long *bits)
 {
     struct ch341_device* ch341_dev = (struct ch341_device*)gpiochip_get_data(chip);
     int i;
 
-    CHECK_PARAM (ch341_dev);
-    CHECK_PARAM (mask);
-    CHECK_PARAM (bits);
+    CHECK_PARAM_RET (ch341_dev, -EINVAL);
+    CHECK_PARAM_RET (mask, -EINVAL);
+    CHECK_PARAM_RET (bits, -EINVAL);
 
     for (i = 0; i < ch341_dev->gpio_num; i++)
         if (*mask & (1 << i) && ch341_dev->gpio_pins[i]->mode == CH341_PIN_MODE_OUT)
@@ -1071,9 +1069,7 @@ static void ch341_gpio_set_multiple (struct gpio_chip *chip,
     // DEV_DBG (CH341_IF_ADDR, "mask=%08lx bit=%08lx io_data=%02x",
     //          *mask, *bits, ch341_dev->gpio_io_data);
 
-    ch341_spi_write_outputs (ch341_dev);
-
-    return;
+    return ch341_spi_write_outputs(ch341_dev);;
 }
 
 
@@ -1116,7 +1112,7 @@ static int ch341_gpio_set_direction (struct gpio_chip *chip, unsigned offset, bo
     else
         ch341_dev->gpio_mask &= ~ch341_dev->gpio_bits[offset];
 
-    return CH341_OK;
+    return 0;
 }
 
 static int ch341_gpio_direction_input (struct gpio_chip *chip, unsigned offset)
@@ -1126,11 +1122,12 @@ static int ch341_gpio_direction_input (struct gpio_chip *chip, unsigned offset)
 
 static int ch341_gpio_direction_output (struct gpio_chip *chip, unsigned offset, int value)
 {
-    int result = CH341_OK;
+    int result = ch341_gpio_set_direction(chip, offset, false);
 
-    if ((result = ch341_gpio_set_direction (chip, offset, false)) == CH341_OK)
+    if (result == 0) {
         // set initial output value
-        ch341_gpio_set (chip, offset, value);
+        result = ch341_gpio_set(chip, offset, value);
+    }
 
     return result;
 }
@@ -1414,7 +1411,7 @@ static int ch341_usb_probe (struct usb_interface* usb_if,
 
     DEV_INFO (CH341_IF_ADDR, "connected");
 
-    return CH341_OK;
+    return 0;
 }
 
 static void ch341_usb_disconnect(struct usb_interface *usb_if)
