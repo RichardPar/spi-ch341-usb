@@ -1029,12 +1029,12 @@ static int ch341_gpio_get_multiple (struct gpio_chip *chip,
     return 0;
 }
 
-static int ch341_gpio_set (struct gpio_chip *chip, unsigned offset, int value)
+static void ch341_gpio_set (struct gpio_chip *chip, unsigned offset, int value)
 {
     struct ch341_device* ch341_dev = (struct ch341_device*)gpiochip_get_data(chip);
 
-    CHECK_PARAM_RET (ch341_dev, -EINVAL);
-    CHECK_PARAM_RET (offset < ch341_dev->gpio_num, -EINVAL);
+    if (!ch341_dev || offset >= ch341_dev->gpio_num)
+        return;
 
     if (value)
         ch341_dev->gpio_io_data |= ch341_dev->gpio_bits[offset];
@@ -1044,18 +1044,17 @@ static int ch341_gpio_set (struct gpio_chip *chip, unsigned offset, int value)
     // DEV_DBG (CH341_IF_ADDR, "offset=%u value=%d io_data=%02x",
     //          offset, value, ch341_dev->gpio_io_data);
 
-    return ch341_spi_write_outputs(ch341_dev);
+    ch341_spi_write_outputs(ch341_dev);
 }
 
-static int ch341_gpio_set_multiple (struct gpio_chip *chip,
+static void ch341_gpio_set_multiple (struct gpio_chip *chip,
                               unsigned long *mask, unsigned long *bits)
 {
     struct ch341_device* ch341_dev = (struct ch341_device*)gpiochip_get_data(chip);
     int i;
 
-    CHECK_PARAM_RET (ch341_dev, -EINVAL);
-    CHECK_PARAM_RET (mask, -EINVAL);
-    CHECK_PARAM_RET (bits, -EINVAL);
+    if (!ch341_dev || !mask || !bits)
+        return;
 
     for (i = 0; i < ch341_dev->gpio_num; i++)
         if (*mask & (1 << i) && ch341_dev->gpio_pins[i]->mode == CH341_PIN_MODE_OUT)
@@ -1069,7 +1068,7 @@ static int ch341_gpio_set_multiple (struct gpio_chip *chip,
     // DEV_DBG (CH341_IF_ADDR, "mask=%08lx bit=%08lx io_data=%02x",
     //          *mask, *bits, ch341_dev->gpio_io_data);
 
-    return ch341_spi_write_outputs(ch341_dev);;
+    ch341_spi_write_outputs(ch341_dev);
 }
 
 
@@ -1126,7 +1125,7 @@ static int ch341_gpio_direction_output (struct gpio_chip *chip, unsigned offset,
 
     if (result == 0) {
         // set initial output value
-        result = ch341_gpio_set(chip, offset, value);
+        ch341_gpio_set(chip, offset, value);
     }
 
     return result;
